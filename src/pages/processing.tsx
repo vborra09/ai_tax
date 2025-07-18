@@ -77,7 +77,7 @@ export default function ProcessingPage() {
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold">Processing Your Tax Return</h1>
+          <h1 className="text-2xl font-bold text-black">Processing Your Tax Return</h1>
           <p className="text-muted-foreground mt-1">Please wait while we process your documents</p>
         </div>
       </header>
@@ -151,21 +151,6 @@ export default function ProcessingPage() {
           ))}
         </div>
 
-        {/* Processing Info */}
-        <Card className="mt-12 border-primary/20 bg-primary/5">
-          <CardContent className="flex items-start p-6">
-            <Calculator className="w-6 h-6 text-primary mt-1 mr-3" />
-            <div>
-              <h3 className="text-lg font-medium text-primary mb-2">What's happening behind the scenes?</h3>
-              <ul className="text-primary/80 space-y-1">
-                <li>• OCR technology extracts data from your documents</li>
-                <li>• AI validates and cross-references information</li>
-                <li>• Tax calculations use current IRS tax brackets and rules</li>
-                <li>• Form 1040 is populated with your specific data</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Security Notice */}
         <Card className="mt-6 border-muted">

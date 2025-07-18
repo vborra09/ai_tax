@@ -5,22 +5,20 @@ import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted">
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <Calculator className="h-8 w-8 text-primary mr-3" />
-              <h1 className="text-2xl font-bold">AI Tax Agent</h1>
+              <h1 className="text-2xl font-bold text-primary">AI Tax Agent</h1>
             </div>
             <nav className="hidden md:flex space-x-8">
               <Link href="#features" className="text-muted-foreground hover:text-foreground">
                 Features
               </Link>
-              <Link href="#security" className="text-muted-foreground hover:text-foreground">
-                Security
-              </Link>
+              
               <Link href="#support" className="text-muted-foreground hover:text-foreground">
                 Support
               </Link>
@@ -30,11 +28,11 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground">
+      <section>
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-24">
           <div className="text-center">
-            <h2 className="text-4xl font-bold mb-6">Automate Your Tax Return with AI</h2>
-            <p className="text-xl mb-8 text-primary-foreground/90 max-w-3xl mx-auto">
+            <h2 className="text-4xl font-bold text-primary">Automate Your Tax Return with AI</h2>
+            <p className="text-xl mb-8 text-gray-800 max-w-3xl mx-auto">
               Upload your tax documents, let our AI extract the data, calculate your taxes, and generate a completed
               Form 1040 in minutes.
             </p>
@@ -52,7 +50,7 @@ export default function HomePage() {
       <section id="features" className="py-20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h3 className="text-3xl font-bold mb-4">How It Works</h3>
+            <h3 className="text-3xl font-bold text-black">How It Works</h3>
             <p className="text-lg text-muted-foreground">Simple, secure, and automated tax preparation</p>
           </div>
 
@@ -96,27 +94,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Security Section */}
-      <section id="security" className="bg-muted py-20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <Shield className="h-16 w-16 text-primary mx-auto mb-4" />
-            <h3 className="text-3xl font-bold mb-4">Bank-Level Security</h3>
-            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-              Your sensitive tax information is protected with enterprise-grade encryption. Documents are processed in
-              memory and never permanently stored.
-            </p>
-          </div>
-        </div>
-      </section>
+      
 
       {/* Footer */}
       <footer className="bg-card border-t py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
             <div className="flex items-center justify-center mb-4">
-              <Calculator className="h-6 w-6 mr-2" />
-              <span className="text-lg font-semibold">AI Tax Agent</span>
+              <Calculator className="h-6 w-6 text-primary mr-2" />
+              <span className="text-lg font-semibold text-black">AI Tax Agent</span>
             </div>
             <p className="text-muted-foreground">
               © 2024 AI Tax Agent. This is a prototype for demonstration purposes only.

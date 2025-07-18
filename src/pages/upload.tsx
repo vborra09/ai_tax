@@ -1,15 +1,14 @@
 "use client"
 
-import type React from "react"
-
-import { useState } from "react"
-import { useRouter } from "next/router"
-import { Upload, FileText, AlertCircle, CheckCircle } from "lucide-react"
+import { useState, useRef, ChangeEvent } from "react"
+import { useRouter } from "next/navigation"
+import { Upload, FileText, AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import api from "@/lib/axios"
 
 interface UploadedFile {
   file: File
@@ -26,7 +25,11 @@ export default function UploadPage() {
     ssn: "",
     filingStatus: "single",
     dependents: 0,
+    children: 0
   })
+  const [error, setError] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
   const handleDrag = (e: React.DragEvent) => {
@@ -43,19 +46,52 @@ export default function UploadPage() {
     e.preventDefault()
     e.stopPropagation()
     setDragActive(false)
-
-    const files = Array.from(e.dataTransfer.files)
-    handleFiles(files)
-  }
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files)
-      handleFiles(files)
+    if (e.dataTransfer.files) {
+      handleFiles(Array.from(e.dataTransfer.files))
     }
   }
 
+  const handleFileInput = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      handleFiles(Array.from(e.target.files))
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "" // Reset input to allow same file re-upload
+      }
+    }
+  }
+
+  const validateFiles = (files: File[]): boolean => {
+    const MAX_SIZE = 5 * 1024 * 1024 // 5MB
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/png"]
+    
+    for (const file of files) {
+      if (file.size > MAX_SIZE) {
+        setError(`File too large: ${file.name} (max 5MB)`)
+        return false
+      }
+      if (!allowedTypes.includes(file.type)) {
+        setError(`Invalid file type: ${file.name} (only PDF, JPG, PNG)`)
+        return false
+      }
+    }
+    return true
+  }
+
+  const detectDocumentType = (filename: string): string => {
+    const name = filename.toLowerCase()
+    if (/w-?2/i.test(name)) return "W-2"
+    if (/(1099-?int)/i.test(name)) return "1099-INT"
+    if (/(1099-?nec)/i.test(name)) return "1099-NEC"
+    if (/(1099-?div)/i.test(name)) return "1099-DIV"
+    if (/(1099-?b)/i.test(name)) return "1099-B"
+    if (/1040/i.test(name)) return "Form 1040"
+    return "Other Tax Document"
+  }
+
   const handleFiles = (files: File[]) => {
+    setError("")
+    if (!validateFiles(files)) return
+    
     const newFiles = files.map((file) => ({
       file,
       type: detectDocumentType(file.name),
@@ -64,38 +100,67 @@ export default function UploadPage() {
     setUploadedFiles((prev) => [...prev, ...newFiles])
   }
 
-  const detectDocumentType = (filename: string): string => {
-    const name = filename.toLowerCase()
-    if (name.includes("w-2") || name.includes("w2")) return "W-2"
-    if (name.includes("1099-int")) return "1099-INT"
-    if (name.includes("1099-nec")) return "1099-NEC"
-    if (name.includes("1099")) return "1099"
-    return "Unknown"
-  }
-
   const removeFile = (index: number) => {
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const handleSubmit = async () => {
-    if (uploadedFiles.length === 0) return
+const handleSubmit = async () => {
+  if (uploadedFiles.length === 0 || !personalInfo.firstName || !personalInfo.lastName) return
 
-    // Simulate processing
-    setUploadedFiles((prev) => prev.map((file) => ({ ...file, status: "processing" })))
+  setIsSubmitting(true)
+  setError("")
+  setUploadedFiles(prev => prev.map(file => ({ ...file, status: "processing" })))
 
-    // Simulate API call delay
-    setTimeout(() => {
-      setUploadedFiles((prev) => prev.map((file) => ({ ...file, status: "completed" })))
-      router.push("/processing")
-    }, 2000)
+  try {
+    const formData = new FormData()
+    formData.append("firstName", personalInfo.firstName)
+    formData.append("lastName", personalInfo.lastName)
+    formData.append("ssn", personalInfo.ssn)
+    formData.append("filing_status", personalInfo.filingStatus)
+    formData.append("num_other_dependents", personalInfo.dependents.toString())
+    formData.append("num_qualifying_children", personalInfo.children.toString())
+
+    uploadedFiles.forEach(file => {
+      formData.append("files", file.file, file.file.name)
+    })
+
+    const response = await api.post("/process-forms/", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    })
+
+    setUploadedFiles(prev => prev.map(file => ({ ...file, status: "completed" })))
+    
+    // Pass the entire response to the results page
+    const params = new URLSearchParams({
+      success: "true",
+      data: JSON.stringify(response.data)
+    }).toString()
+    router.push(`/results?${params}`)
+  } catch (err: any) {
+    console.error("Upload failed:", err)
+    const message =
+      err.response?.data?.message ||
+      err.message ||
+      "Failed to upload documents. Please try again."
+
+    setError(message)
+    setUploadedFiles(prev => prev.map(file => ({
+      ...file,
+      status: file.status === "processing" ? "error" : file.status
+    })))
+  } finally {
+    setIsSubmitting(false)
   }
+}
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-muted">
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl font-bold">Upload Tax Documents</h1>
+          <h1 className="text-2xl font-bold text-primary">Upload Tax Documents</h1>
           <p className="text-muted-foreground mt-1">Upload your W-2, 1099, and other tax documents</p>
         </div>
       </header>
@@ -111,19 +176,21 @@ export default function UploadPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
+                  <Label htmlFor="firstName">First Name*</Label>
                   <Input
                     id="firstName"
                     value={personalInfo.firstName}
                     onChange={(e) => setPersonalInfo((prev) => ({ ...prev, firstName: e.target.value }))}
+                    required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
+                  <Label htmlFor="lastName">Last Name*</Label>
                   <Input
                     id="lastName"
                     value={personalInfo.lastName}
                     onChange={(e) => setPersonalInfo((prev) => ({ ...prev, lastName: e.target.value }))}
+                    required
                   />
                 </div>
               </div>
@@ -136,6 +203,7 @@ export default function UploadPage() {
                   value={personalInfo.ssn}
                   onChange={(e) => setPersonalInfo((prev) => ({ ...prev, ssn: e.target.value }))}
                   placeholder="XXX-XX-XXXX"
+                  pattern="\d{3}-?\d{2}-?\d{4}"
                 />
               </div>
 
@@ -169,13 +237,25 @@ export default function UploadPage() {
                   }
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="children">Number of children</Label>
+                <Input
+                  id="children"
+                  type="number"
+                  min="0"
+                  value={personalInfo.children}
+                  onChange={(e) =>
+                    setPersonalInfo((prev) => ({ ...prev, children: Number.parseInt(e.target.value) || 0 }))
+                  }
+                />
+              </div>
             </CardContent>
           </Card>
 
           {/* File Upload */}
           <Card>
             <CardHeader>
-              <CardTitle>Upload Documents</CardTitle>
+              <CardTitle>Upload Documents*</CardTitle>
               <CardDescription>Drag and drop your tax documents or click to browse</CardDescription>
             </CardHeader>
             <CardContent>
@@ -197,26 +277,33 @@ export default function UploadPage() {
                 <input
                   type="file"
                   multiple
-                  accept=".pdf"
+                  accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleFileInput}
                   className="hidden"
                   id="file-upload"
+                  ref={fileInputRef}
                 />
-                <Button asChild variant="outline">
+                <Button 
+                  asChild 
+                  variant="outline"
+                  className="bg-white hover:bg-white hover:text-black hover:border-gray-300 transition-colors"
+                >
                   <label htmlFor="file-upload" className="cursor-pointer">
                     Choose Files
                   </label>
                 </Button>
-                <p className="text-sm text-muted-foreground mt-2">Supported: PDF files only</p>
+                <p className="text-sm text-muted-foreground mt-2">Supported: PDF, JPG, PNG (max 5MB each)</p>
               </div>
 
               {/* Uploaded Files */}
               {uploadedFiles.length > 0 && (
                 <div className="mt-6">
-                  <h3 className="font-medium mb-3">Uploaded Documents</h3>
-                  <div className="space-y-2">
+                  <h3 className="font-medium mb-3">Uploaded Documents ({uploadedFiles.length})</h3>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
                     {uploadedFiles.map((uploadedFile, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-muted rounded-md">
+                      <div key={index} className={`flex items-center justify-between p-3 rounded-md ${
+                        uploadedFile.status === "error" ? "bg-destructive/10" : "bg-muted"
+                      }`}>
                         <div className="flex items-center">
                           <FileText className="h-5 w-5 text-muted-foreground mr-3" />
                           <div>
@@ -226,18 +313,33 @@ export default function UploadPage() {
                         </div>
                         <div className="flex items-center">
                           {uploadedFile.status === "pending" && (
-                            <Button variant="ghost" size="sm" onClick={() => removeFile(index)}>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => removeFile(index)}
+                              className="text-destructive hover:text-destructive"
+                            >
                               Remove
                             </Button>
                           )}
                           {uploadedFile.status === "processing" && (
                             <div className="flex items-center text-primary">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
                               Processing
                             </div>
                           )}
-                          {uploadedFile.status === "completed" && <CheckCircle className="h-5 w-5 text-green-600" />}
-                          {uploadedFile.status === "error" && <AlertCircle className="h-5 w-5 text-destructive" />}
+                          {uploadedFile.status === "completed" && (
+                            <div className="flex items-center text-green-600">
+                              <CheckCircle className="h-5 w-5 mr-1" />
+                              Done
+                            </div>
+                          )}
+                          {uploadedFile.status === "error" && (
+                            <div className="flex items-center text-destructive">
+                              <AlertCircle className="h-5 w-5 mr-1" />
+                              Failed
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -248,14 +350,34 @@ export default function UploadPage() {
           </Card>
         </div>
 
-        {/* Submit Button */}
-        <div className="mt-8 text-center">
+        {/* Submit Button and Error Message */}
+        <div className="mt-8 text-center space-y-4">
+          {error && (
+            <div className="p-4 bg-destructive/10 text-destructive rounded-md inline-flex items-center">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              {error}
+            </div>
+          )}
+          
           <Button
             onClick={handleSubmit}
-            disabled={uploadedFiles.length === 0 || !personalInfo.firstName || !personalInfo.lastName}
+            disabled={
+              uploadedFiles.length === 0 || 
+              !personalInfo.firstName || 
+              !personalInfo.lastName ||
+              isSubmitting
+            }
             size="lg"
+            className="min-w-48"
           >
-            Process Tax Documents
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              'Submit Tax Documents'
+            )}
           </Button>
         </div>
       </div>
